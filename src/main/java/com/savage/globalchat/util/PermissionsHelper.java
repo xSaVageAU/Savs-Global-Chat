@@ -36,6 +36,10 @@ public class PermissionsHelper {
         return checkVanilla(source, level);
     }
 
+    public static boolean check(net.minecraft.server.network.ServerPlayerEntity player, String node, int level) {
+        return check(player.getCommandSource(), node, level);
+    }
+
     private static boolean checkVanilla(ServerCommandSource source, int level) {
         // In 1.21.11+, source.hasPermissionLevel(int) might be deprecated or moved.
         // Using the robust check found in reference project:

@@ -17,9 +17,9 @@ public class GlobalChatCommand {
                     
                     if (source.isExecutedByPlayer()) {
                         String player = source.getPlayer().getName().getString();
-                        RedisManager.publishChat(player, message);
+                        RedisManager.publishChat(player, message, "GLOBAL");
                     } else {
-                        RedisManager.publishChat("Console", message);
+                        RedisManager.publishChat("Console", message, "GLOBAL");
                     }
                     
                     return 1;

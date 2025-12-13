@@ -31,51 +31,79 @@ public class RedisManager {
 
         SavsGlobalChat.LOGGER.info("Redis initialized on " + host + ":" + port);
 
-        // Start Subscriber
-        new Thread(RedisManager::subscribe).start();
+        // Start Subscribers (Split to avoid multi-channel issues on MicroRESP)
+        new Thread(() -> subscribeToChannel(ChatConfig.instance.channels.globalChat, "GLOBAL")).start();
+        new Thread(() -> subscribeToChannel(ChatConfig.instance.channels.globalChat + "-staff", "STAFF")).start();
     }
 
     public static void setServer(MinecraftServer mcServer) {
         server = mcServer;
     }
 
-    public static void publishChat(String playerName, String message) {
+    public static void publishChat(String playerName, String message, String type) {
         try (Jedis jedis = jedisPool.getResource()) {
             ChatMessage chat = new ChatMessage(playerName, message);
             String json = gson.toJson(chat);
-            jedis.publish(ChatConfig.instance.channels.globalChat, json);
+            
+            String channel = ChatConfig.instance.channels.globalChat;
+            if ("STAFF".equals(type)) {
+                channel = ChatConfig.instance.channels.globalChat + "-staff";
+            }
+            
+            jedis.publish(channel, json);
         } catch (Exception e) {
             SavsGlobalChat.LOGGER.error("Failed to publish chat", e);
         }
     }
 
-    private static void subscribe() {
-        try (Jedis jedis = jedisPool.getResource()) {
-            jedis.subscribe(new JedisPubSub() {
-                @Override
-                public void onMessage(String channel, String message) {
-                    if (channel.equals(ChatConfig.instance.channels.globalChat)) {
-                        handleChatMessage(message);
+    private static void subscribeToChannel(String channelName, String type) {
+        while (true) { // Reconnection Loop
+            try (Jedis jedis = jedisPool.getResource()) {
+                SavsGlobalChat.LOGGER.info("Subscribing to Redis channel: " + channelName);
+                
+                jedis.subscribe(new JedisPubSub() {
+                    @Override
+                    public void onMessage(String channel, String message) {
+                        handleChatMessage(message, type);
                     }
-                }
-            }, ChatConfig.instance.channels.globalChat);
-        } catch (Exception e) {
-            SavsGlobalChat.LOGGER.error("Redis Subscriber failed", e);
+                }, channelName);
+
+            } catch (Exception e) {
+                SavsGlobalChat.LOGGER.error("Redis Subscriber (" + type + ") connection lost. Reconnecting in 5s...", e);
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException ignored) {}
+            }
         }
     }
 
-    private static void handleChatMessage(String json) {
+    private static void handleChatMessage(String json, String type) {
         if (server == null) return;
 
         try {
             ChatMessage chat = gson.fromJson(json, ChatMessage.class);
-            // Broadcast to all players
-            // Format: [Global] <Player>: Message
-            String formatted = String.format("§b[Global] §f%s: %s", chat.player, chat.message);
             
-            server.execute(() -> {
-                server.getPlayerManager().broadcast(Text.of(formatted), false);
-            });
+            String formatted;
+            if ("STAFF".equals(type)) {
+                formatted = String.format("§c[Staff] §f%s: §e%s", chat.player, chat.message);
+                
+                // Broadcast only to staff
+                server.execute(() -> {
+                    server.getPlayerManager().getPlayerList().forEach(player -> {
+                        boolean hasPerm = com.savage.globalchat.util.PermissionsHelper.check(player, "globalchat.channel.staff", 2);
+                        if (hasPerm) {
+                            player.sendMessage(Text.of(formatted));
+                        }
+                    });
+                });
+            } else {
+                formatted = String.format("§b[Global] §f%s: %s", chat.player, chat.message);
+                // Broadcast to all
+                server.execute(() -> {
+                    server.getPlayerManager().broadcast(Text.of(formatted), false);
+                });
+            }
+
         } catch (Exception e) {
             SavsGlobalChat.LOGGER.error("Failed to parse chat message", e);
         }

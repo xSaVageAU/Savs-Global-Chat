@@ -15,7 +15,18 @@ public class ChatInterceptor {
                 String content = message.getContent().getString();
                 String player = sender.getName().getString();
                 
-                RedisManager.publishChat(player, content);
+                RedisManager.publishChat(player, content, "GLOBAL");
+
+                // Cancel vanilla broadcast
+                return false;
+            }
+
+            if (channel == ChannelManager.ChannelType.STAFF) {
+                // Publish to Staff Redis
+                String content = message.getContent().getString();
+                String player = sender.getName().getString();
+                
+                RedisManager.publishChat(player, content, "STAFF");
 
                 // Cancel vanilla broadcast
                 return false;
