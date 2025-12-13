@@ -18,6 +18,7 @@ public class ChatConfig {
     public static class ConfigData {
         public RedisConfig redis = new RedisConfig();
         public ChannelsConfig channels = new ChannelsConfig();
+        public String defaultChannel = "LOCAL";
     }
 
     public static class RedisConfig {

@@ -1,7 +1,10 @@
 package com.savage.globalchat;
 
+import com.savage.globalchat.command.ChatCommand;
 import com.savage.globalchat.command.GlobalChatCommand;
 import com.savage.globalchat.config.ChatConfig;
+import com.savage.globalchat.manager.ChannelManager;
+import com.savage.globalchat.manager.ChatInterceptor;
 import com.savage.globalchat.redis.RedisManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -20,12 +23,15 @@ public class SavsGlobalChat implements ModInitializer {
         // Load Config
         ChatConfig.load();
 
-        // Initialize Redis
+        // Initialize Managers
         RedisManager.init();
+        ChannelManager.init();
+        ChatInterceptor.init();
 
-        // Register Command
+        // Register Commands
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             GlobalChatCommand.register(dispatcher);
+            ChatCommand.register(dispatcher);
         });
 
         // Register Server Lifecycle

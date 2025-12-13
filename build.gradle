@@ -13,6 +13,10 @@ base {
 
 repositories {
     mavenCentral()
+    maven { url 'https://oss.sonatype.org/content/repositories/snapshots' }
+    maven { url 'https://maven.terraformersmc.com/releases/' }
+    maven { url 'https://jitpack.io' }
+    maven { url 'https://maven.nucleoid.xyz/' }
 	// Add repositories to retrieve artifacts from in here.
 	// You should only use this when depending on other mods because
 	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
@@ -34,6 +38,10 @@ dependencies {
 
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    
+    // Fabric Permissions API
+    modImplementation "me.lucko:fabric-permissions-api:0.6.1"
+    include "me.lucko:fabric-permissions-api:0.6.1"
 	
     implementation 'redis.clients:jedis:5.1.0'
     shadow 'redis.clients:jedis:5.1.0'
