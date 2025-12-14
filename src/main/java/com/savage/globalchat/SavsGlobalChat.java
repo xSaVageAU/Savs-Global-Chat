@@ -38,5 +38,9 @@ public class SavsGlobalChat implements ModInitializer {
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             RedisManager.setServer(server);
         });
+
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+            RedisManager.shutdown();
+        });
     }
 }

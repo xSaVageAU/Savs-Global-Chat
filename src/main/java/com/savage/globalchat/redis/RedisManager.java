@@ -3,37 +3,72 @@ package com.savage.globalchat.redis;
 import com.google.gson.Gson;
 import com.savage.globalchat.SavsGlobalChat;
 import com.savage.globalchat.config.ChatConfig;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.RedisURI;
+import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.pubsub.RedisPubSubAdapter;
+import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
+import io.lettuce.core.pubsub.api.async.RedisPubSubAsyncCommands;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.text.Text;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.JedisPoolConfig;
-import redis.clients.jedis.JedisPubSub;
+
+import java.time.Duration;
 
 public class RedisManager {
-    private static JedisPool jedisPool;
+    private static RedisClient redisClient;
+    private static StatefulRedisConnection<String, String> connection;
+    private static StatefulRedisPubSubConnection<String, String> pubSubConnection;
     private static final Gson gson = new Gson();
     private static MinecraftServer server;
 
     public static void init() {
-        JedisPoolConfig poolConfig = new JedisPoolConfig();
-        poolConfig.setMaxTotal(10);
-
         String host = ChatConfig.instance.redis.host;
         int port = ChatConfig.instance.redis.port;
         String password = ChatConfig.instance.redis.password;
 
-        if (password == null || password.isEmpty()) {
-            jedisPool = new JedisPool(poolConfig, host, port, 2000);
-        } else {
-            jedisPool = new JedisPool(poolConfig, host, port, 2000, password);
+        RedisURI.Builder builder = RedisURI.builder()
+                .withHost(host)
+                .withPort(port)
+                .withTimeout(Duration.ofSeconds(0)); // Infinite timeout to match previous logic
+
+        if (password != null && !password.isEmpty()) {
+            builder.withPassword(password);
         }
 
-        SavsGlobalChat.LOGGER.info("Redis initialized on " + host + ":" + port);
+        RedisURI uri = builder.build();
+        redisClient = RedisClient.create(uri);
 
-        // Start Subscribers (Split to avoid multi-channel issues on MicroRESP)
-        new Thread(() -> subscribeToChannel(ChatConfig.instance.channels.globalChat, "GLOBAL")).start();
-        new Thread(() -> subscribeToChannel(ChatConfig.instance.channels.globalChat + "-staff", "STAFF")).start();
+        try {
+            // Establish shared connection for publishing
+            connection = redisClient.connect();
+            
+            // Establish dedicated connection for subscribing
+            pubSubConnection = redisClient.connectPubSub();
+
+            SavsGlobalChat.LOGGER.info("Redis initialized on " + host + ":" + port);
+
+            // Add Listener
+            pubSubConnection.addListener(new RedisPubSubAdapter<String, String>() {
+                @Override
+                public void message(String channel, String message) {
+                    // Determine type based on channel
+                    String type = "GLOBAL";
+                    if (channel.endsWith("-staff")) {
+                        type = "STAFF";
+                    }
+                    handleChatMessage(message, type);
+                }
+            });
+
+            // Subscribe asynchronously
+            RedisPubSubAsyncCommands<String, String> async = pubSubConnection.async();
+            async.subscribe(ChatConfig.instance.channels.globalChat, ChatConfig.instance.channels.globalChat + "-staff");
+            
+            SavsGlobalChat.LOGGER.info("Subscribed to channels: " + ChatConfig.instance.channels.globalChat + ", " + ChatConfig.instance.channels.globalChat + "-staff");
+
+        } catch (Exception e) {
+            SavsGlobalChat.LOGGER.error("Failed to initialize Redis connection", e);
+        }
     }
 
     public static void setServer(MinecraftServer mcServer) {
@@ -41,7 +76,12 @@ public class RedisManager {
     }
 
     public static void publishChat(String playerName, String message, String type) {
-        try (Jedis jedis = jedisPool.getResource()) {
+        if (connection == null || !connection.isOpen()) {
+            SavsGlobalChat.LOGGER.warn("Attempted to publish chat but Redis connection is closed.");
+            return;
+        }
+
+        try {
             ChatMessage chat = new ChatMessage(playerName, message);
             String json = gson.toJson(chat);
             
@@ -50,35 +90,15 @@ public class RedisManager {
                 channel = ChatConfig.instance.channels.globalChat + "-staff";
             }
             
-            jedis.publish(channel, json);
+            // Async publish
+            connection.async().publish(channel, json);
         } catch (Exception e) {
             SavsGlobalChat.LOGGER.error("Failed to publish chat", e);
         }
     }
 
-    private static void subscribeToChannel(String channelName, String type) {
-        while (true) { // Reconnection Loop
-            try (Jedis jedis = jedisPool.getResource()) {
-                SavsGlobalChat.LOGGER.info("Subscribing to Redis channel: " + channelName);
-                
-                // Disable timeout for subscriber
-                jedis.getClient().setSoTimeout(0);
-                
-                jedis.subscribe(new JedisPubSub() {
-                    @Override
-                    public void onMessage(String channel, String message) {
-                        handleChatMessage(message, type);
-                    }
-                }, channelName);
-
-            } catch (Exception e) {
-                SavsGlobalChat.LOGGER.error("Redis Subscriber (" + type + ") connection lost. Reconnecting in 5s...", e);
-                try {
-                    Thread.sleep(5000);
-                } catch (InterruptedException ignored) {}
-            }
-        }
-    }
+    // No longer needed as Lettuce handles subscriptions via the long-lived connection and listener
+    // private static void subscribeToChannel(String channelName, String type) { ... }
 
     private static void handleChatMessage(String json, String type) {
         if (server == null) return;
@@ -110,6 +130,12 @@ public class RedisManager {
         } catch (Exception e) {
             SavsGlobalChat.LOGGER.error("Failed to parse chat message", e);
         }
+    }
+    
+    public static void shutdown() {
+        if (connection != null) connection.close();
+        if (pubSubConnection != null) pubSubConnection.close();
+        if (redisClient != null) redisClient.shutdown();
     }
 
     private static class ChatMessage {

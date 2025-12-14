@@ -43,8 +43,13 @@ dependencies {
     modImplementation "me.lucko:fabric-permissions-api:0.6.1"
     include "me.lucko:fabric-permissions-api:0.6.1"
 	
-    implementation 'redis.clients:jedis:5.1.0'
-    shadow 'redis.clients:jedis:5.1.0'
+    // Redis - Lettuce
+    implementation ('io.lettuce:lettuce-core:6.3.2.RELEASE') {
+        exclude group: 'io.netty'
+    }
+    shadow ('io.lettuce:lettuce-core:6.3.2.RELEASE') {
+        exclude group: 'io.netty'
+    }
 }
 
 processResources {
