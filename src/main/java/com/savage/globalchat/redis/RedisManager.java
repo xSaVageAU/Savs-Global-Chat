@@ -61,6 +61,9 @@ public class RedisManager {
             try (Jedis jedis = jedisPool.getResource()) {
                 SavsGlobalChat.LOGGER.info("Subscribing to Redis channel: " + channelName);
                 
+                // Disable timeout for subscriber
+                jedis.getClient().setSoTimeout(0);
+                
                 jedis.subscribe(new JedisPubSub() {
                     @Override
                     public void onMessage(String channel, String message) {
