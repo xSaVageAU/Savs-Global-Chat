@@ -37,6 +37,9 @@ public class RedisManager {
 
         RedisURI uri = builder.build();
         redisClient = RedisClient.create(uri);
+        redisClient.setOptions(io.lettuce.core.ClientOptions.builder()
+                .protocolVersion(io.lettuce.core.protocol.ProtocolVersion.RESP2)
+                .build());
 
         try {
             // Establish shared connection for publishing
