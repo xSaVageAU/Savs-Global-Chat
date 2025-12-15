@@ -48,10 +48,14 @@ public class RedisManager {
 
     private static int retryAttempt = 0;
     private static final int MAX_RETRY_DELAY = 10000; // 10s cap
+    private static volatile boolean isExpectedDisconnect = false;
+    private static final java.util.concurrent.ScheduledExecutorService scheduler = java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
 
     public static void connect() {
         // Reset connections if they exist but are broken
+        isExpectedDisconnect = true;
         closeConnections();
+        isExpectedDisconnect = false;
 
         try {
             // Establish shared connection for publishing
@@ -80,13 +84,21 @@ public class RedisManager {
             // Add Connection Watchdog
             connection.addListener(new io.lettuce.core.RedisConnectionStateListener() {
                 public void onRedisDisconnected(io.lettuce.core.RedisChannelHandler<?, ?> connection) {
-                     scheduleReconnect();
+                     if (!isExpectedDisconnect) {
+                         scheduleReconnect();
+                     }
                 }
                 public void onRedisExceptionCaught(io.lettuce.core.RedisChannelHandler<?, ?> connection, Throwable cause) {}
             });
             
             SavsGlobalChat.LOGGER.info("Redis connected on " + ChatConfig.instance.redis.host);
-            retryAttempt = 0; // Reset counter on success
+            
+            // Stability Check: Only reset retry counter if connected for 5 seconds
+            scheduler.schedule(() -> {
+                if (connection != null && connection.isOpen()) {
+                    retryAttempt = 0;
+                }
+            }, 5, java.util.concurrent.TimeUnit.SECONDS);
 
         } catch (Exception e) {
             scheduleReconnect();
@@ -186,6 +198,7 @@ public class RedisManager {
         if (connection != null) connection.close();
         if (pubSubConnection != null) pubSubConnection.close();
         if (redisClient != null) redisClient.shutdown();
+        if (scheduler != null) scheduler.shutdownNow();
     }
 
     private static class ChatMessage {
