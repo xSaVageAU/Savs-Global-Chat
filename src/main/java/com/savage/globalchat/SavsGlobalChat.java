@@ -32,6 +32,7 @@ public class SavsGlobalChat implements ModInitializer {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             GlobalChatCommand.register(dispatcher);
             ChatCommand.register(dispatcher);
+            com.savage.globalchat.command.AdminCommand.register(dispatcher);
         });
 
         // Register Server Lifecycle
