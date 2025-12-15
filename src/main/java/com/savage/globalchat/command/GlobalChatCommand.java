@@ -17,7 +17,10 @@ public class GlobalChatCommand {
                     
                     if (source.isExecutedByPlayer()) {
                         String player = source.getPlayer().getName().getString();
-                        RedisManager.publishChat(player, message, "GLOBAL");
+                        boolean sent = RedisManager.publishChat(player, message, "GLOBAL");
+                        if (!sent) {
+                            source.sendFeedback(() -> Text.literal("§c[Error] Communication channels not responding."), false);
+                        }
                     } else {
                         RedisManager.publishChat("Console", message, "GLOBAL");
                     }

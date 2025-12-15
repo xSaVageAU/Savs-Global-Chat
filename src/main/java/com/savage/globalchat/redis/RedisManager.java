@@ -123,10 +123,10 @@ public class RedisManager {
         server = mcServer;
     }
 
-    public static void publishChat(String playerName, String message, String type) {
+    public static boolean publishChat(String playerName, String message, String type) {
         if (connection == null || !connection.isOpen()) {
-            SavsGlobalChat.LOGGER.warn("Attempted to publish chat but Redis connection is closed.");
-            return;
+            SavsGlobalChat.LOGGER.warn("[GlobalChat] Attempted to publish chat but Redis connection is closed.");
+            return false;
         }
 
         try {
@@ -140,8 +140,10 @@ public class RedisManager {
             
             // Async publish
             connection.async().publish(channel, json);
+            return true;
         } catch (Exception e) {
-            SavsGlobalChat.LOGGER.error("Failed to publish chat", e);
+            SavsGlobalChat.LOGGER.error("[GlobalChat] Failed to publish chat", e);
+            return false;
         }
     }
 
