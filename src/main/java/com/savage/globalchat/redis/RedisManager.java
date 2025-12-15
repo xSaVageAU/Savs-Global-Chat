@@ -41,36 +41,53 @@ public class RedisManager {
                 .protocolVersion(io.lettuce.core.protocol.ProtocolVersion.RESP2)
                 .build());
 
-        try {
-            // Establish shared connection for publishing
-            connection = redisClient.connect();
-            
-            // Establish dedicated connection for subscribing
-            pubSubConnection = redisClient.connectPubSub();
+        // Retry Logic variables
+        int maxRetries = 5;
+        int retryDelay = 1000; // Start with 1s
 
-            SavsGlobalChat.LOGGER.info("Redis initialized on " + host + ":" + port);
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                // Establish shared connection for publishing
+                connection = redisClient.connect();
+                
+                // Establish dedicated connection for subscribing
+                pubSubConnection = redisClient.connectPubSub();
 
-            // Add Listener
-            pubSubConnection.addListener(new RedisPubSubAdapter<String, String>() {
-                @Override
-                public void message(String channel, String message) {
-                    // Determine type based on channel
-                    String type = "GLOBAL";
-                    if (channel.endsWith("-staff")) {
-                        type = "STAFF";
+                SavsGlobalChat.LOGGER.info("Redis initialized on " + host + ":" + port);
+
+                // Add Listener
+                pubSubConnection.addListener(new RedisPubSubAdapter<String, String>() {
+                    @Override
+                    public void message(String channel, String message) {
+                        // Determine type based on channel
+                        String type = "GLOBAL";
+                        if (channel.endsWith("-staff")) {
+                            type = "STAFF";
+                        }
+                        handleChatMessage(message, type);
                     }
-                    handleChatMessage(message, type);
+                });
+
+                // Subscribe asynchronously
+                RedisPubSubAsyncCommands<String, String> async = pubSubConnection.async();
+                async.subscribe(ChatConfig.instance.channels.globalChat, ChatConfig.instance.channels.globalChat + "-staff");
+                
+                SavsGlobalChat.LOGGER.info("Subscribed to channels: " + ChatConfig.instance.channels.globalChat + ", " + ChatConfig.instance.channels.globalChat + "-staff");
+                
+                // If successful, break the loop
+                return;
+
+            } catch (Exception e) {
+                if (i < maxRetries - 1) {
+                    SavsGlobalChat.LOGGER.warn("Failed to connect to Redis (Attempt " + (i + 1) + "/" + maxRetries + "). Retrying in " + (retryDelay / 1000) + "s...");
+                    try {
+                        Thread.sleep(retryDelay);
+                    } catch (InterruptedException ignored) {}
+                    retryDelay += 1000; // Linear Backoff: 1s, 2s, 3s...
+                } else {
+                    SavsGlobalChat.LOGGER.error("Failed to initialize Redis connection after " + maxRetries + " attempts.", e);
                 }
-            });
-
-            // Subscribe asynchronously
-            RedisPubSubAsyncCommands<String, String> async = pubSubConnection.async();
-            async.subscribe(ChatConfig.instance.channels.globalChat, ChatConfig.instance.channels.globalChat + "-staff");
-            
-            SavsGlobalChat.LOGGER.info("Subscribed to channels: " + ChatConfig.instance.channels.globalChat + ", " + ChatConfig.instance.channels.globalChat + "-staff");
-
-        } catch (Exception e) {
-            SavsGlobalChat.LOGGER.error("Failed to initialize Redis connection", e);
+            }
         }
     }
 
