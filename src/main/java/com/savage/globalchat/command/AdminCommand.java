@@ -26,7 +26,7 @@ public class AdminCommand {
                     
                     // Async Execution
                     CompletableFuture.runAsync(() -> {
-                        RedisManager.connect();
+                        com.savage.redislib.RedisService.get().forceReconnect();
                     }).thenRun(() -> {
                          source.sendFeedback(() -> Text.literal("§aReconnection attempt initiated. Check console."), true);
                     });

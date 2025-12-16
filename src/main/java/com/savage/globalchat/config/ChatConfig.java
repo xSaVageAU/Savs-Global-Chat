@@ -22,10 +22,7 @@ public class ChatConfig {
     }
 
     public static class RedisConfig {
-        public String host = "localhost";
-        public int port = 6379;
-        public String password = "";
-        public int database = 0;
+        // Connection details managed by Savs-Redis-Lib
     }
 
     public static class ChannelsConfig {
