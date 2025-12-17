@@ -40,9 +40,7 @@ dependencies {
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
     
-    // Fabric Permissions API
-    modImplementation "me.lucko:fabric-permissions-api:0.5.0"
-    include "me.lucko:fabric-permissions-api:0.5.0"
+
 	
     // Savs Redis Lib
     modImplementation "com.github.xSaVageAU:Savs-Redis-Lib:1.0.0"

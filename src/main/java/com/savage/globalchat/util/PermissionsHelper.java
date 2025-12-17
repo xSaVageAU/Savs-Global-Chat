@@ -5,40 +5,26 @@ import net.minecraft.server.command.ServerCommandSource;
 
 public class PermissionsHelper {
 
-    private static boolean permissionsApiAvailable;
-
-    static {
-        try {
-            Class.forName("me.lucko.fabric.api.permissions.v0.Permissions");
-            permissionsApiAvailable = true;
-            SavsGlobalChat.LOGGER.info("Fabric Permissions API found. Using granular permissions.");
-        } catch (ClassNotFoundException e) {
-            permissionsApiAvailable = false;
-            SavsGlobalChat.LOGGER.warn("Fabric Permissions API NOT found. Falling back to vanilla OP levels.");
-        }
-    }
-
     public static boolean check(ServerCommandSource source, String node, int level) {
-        if (permissionsApiAvailable) {
-            try {
-                return me.lucko.fabric.api.permissions.v0.Permissions.check(
-                        source,
-                        node,
-                        level
-                );
-            } catch (Throwable t) {
-                SavsGlobalChat.LOGGER.error("Error checking permissions for node " + node + ". Falling back to vanilla check.", t);
-                return checkVanilla(source, level);
-            }
+        // 1. Check OP Level (Universal)
+        if (source.hasPermissionLevel(level)) {
+            return true;
         }
-        return checkVanilla(source, level);
+
+        // 2. Check Vanilla Tags (Universal - equivalent to permission nodes)
+        // e.g. /tag <player> add globalchat.channel.staff
+        try {
+            if (source.getEntity() != null && source.getEntity().getCommandTags().contains(node)) {
+                return true;
+            }
+        } catch (Throwable t) {
+            // Ignore (Command block, etc.)
+        }
+
+        return false;
     }
 
     public static boolean check(net.minecraft.server.network.ServerPlayerEntity player, String node, int level) {
         return check(player.getCommandSource(), node, level);
-    }
-
-    private static boolean checkVanilla(ServerCommandSource source, int level) {
-        return source.hasPermissionLevel(level);
     }
 }
