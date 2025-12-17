@@ -24,13 +24,7 @@ public class RedisManager {
              }
         });
         
-        // Subscribe to Staff Chat
-        String staffIdentifier = ChatConfig.instance.channels.globalChat + "-staff";
-        RedisService.get().subscribe(staffIdentifier, (channel, message) -> {
-            if (channel.equals(staffIdentifier)) {
-                handleChatMessage(message, "STAFF");
-            }
-        });
+
         
         SavsGlobalChat.LOGGER.info("Global Chat Initialized using Savs-Redis-Lib");
     }
@@ -50,9 +44,7 @@ public class RedisManager {
             String json = gson.toJson(chat);
             
             String channel = ChatConfig.instance.channels.globalChat;
-            if ("STAFF".equals(type)) {
-                channel = ChatConfig.instance.channels.globalChat + "-staff";
-            }
+
             
             RedisService.get().publish(channel, json);
             return true;
@@ -69,25 +61,11 @@ public class RedisManager {
             ChatMessage chat = gson.fromJson(json, ChatMessage.class);
             
             String formatted;
-            if ("STAFF".equals(type)) {
-                formatted = String.format("§c[Staff] §f%s: §e%s", chat.player, chat.message);
-                
-                // Broadcast only to staff
-                server.execute(() -> {
-                    server.getPlayerManager().getPlayerList().forEach(player -> {
-                        boolean hasPerm = com.savage.globalchat.util.PermissionsHelper.check(player, "globalchat.channel.staff", 2);
-                        if (hasPerm) {
-                            player.sendMessage(Text.of(formatted));
-                        }
-                    });
-                });
-            } else {
                 formatted = String.format("§b[Global] §f%s: %s", chat.player, chat.message);
                 // Broadcast to all
                 server.execute(() -> {
                     server.getPlayerManager().broadcast(Text.of(formatted), false);
                 });
-            }
 
         } catch (Exception e) {
             SavsGlobalChat.LOGGER.error("Failed to parse chat message", e);

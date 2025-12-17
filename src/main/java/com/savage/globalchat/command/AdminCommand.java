@@ -2,7 +2,7 @@ package com.savage.globalchat.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.savage.globalchat.redis.RedisManager;
-import com.savage.globalchat.util.PermissionsHelper;
+
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.text.Text;
@@ -17,7 +17,7 @@ public class AdminCommand {
                     ServerCommandSource source = context.getSource();
                     
                     // Permission Check
-                    if (source.isExecutedByPlayer() && !PermissionsHelper.check(source.getPlayer(), "globalchat.admin", 4)) {
+                    if (!source.hasPermissionLevel(4)) {
                         source.sendError(Text.literal("You do not have permission to use this command."));
                         return 0;
                     }

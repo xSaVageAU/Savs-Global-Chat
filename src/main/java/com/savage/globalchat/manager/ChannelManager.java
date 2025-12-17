@@ -11,8 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ChannelManager {
     public enum ChannelType {
         LOCAL,
-        GLOBAL,
-        STAFF
+        GLOBAL
     }
 
     private static final Map<UUID, ChannelType> playerChannels = new ConcurrentHashMap<>();
