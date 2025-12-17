@@ -41,11 +41,11 @@ dependencies {
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
     
     // Fabric Permissions API
-    modImplementation "me.lucko:fabric-permissions-api:0.6.1"
-    include "me.lucko:fabric-permissions-api:0.6.1"
+    modImplementation "me.lucko:fabric-permissions-api:0.5.0"
+    include "me.lucko:fabric-permissions-api:0.5.0"
 	
     // Savs Redis Lib
-    modImplementation "com.savage.redislib:savs-redis-lib:1.0.0"
+    modImplementation "com.github.xSaVageAU:Savs-Redis-Lib:1.0.0"
 }
 
 processResources {
